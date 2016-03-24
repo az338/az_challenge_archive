@@ -1,0 +1,103 @@
+Scripts for loading in the synergy scores and features from the csv file,
+and splitting data for cross-validation.
+
+
+load_synergies.py
+    DESCRIPTION:
+        Class for loading in synergy scores. We ensure the data is sorted
+        alphabetically by: COMPOUND_A, COMPOUND_B, CELL_LINE. We also merge
+        duplicate entries (same cell line, drug combination) by averaging the
+        synergy scores (62 in total, 43 for QA=1).
+
+    USAGE:
+        synergies = Synergies()
+        synergies.process_data()
+
+    METHODS:
+        __init__(args)
+            Initialise the class by loading in the synergy data. If no 
+            arguments are given, use default locations for files.
+            Usage:
+                Synergies(data=<>)      - pandas dataframe of raw synergy dataset
+                Synergies(location=<>)  - folder+filename.csv of file containing raw synergy dataset
+                Synergies()             - load in raw synergy dataset from default location
+        process_data(args)
+            Filter the data, merge duplicates, and construct the datasets.
+            Usage:
+                synergies.process_data(argname=argval)
+            Arguments:
+                remove_low_quality          -> True/False, remove entries with QA != 1
+                select_cell_lines           -> select entries with cell line name in this list, ['cl']
+                select_drug_combinations    -> select entries with drug combination name in this list,  ['d1.d2']
+                remove_cell_lines           -> remove entries with these cell line names, ['cl']
+                remove_drug_combinations    -> remove entries with these drug combination names, ['d1.d2']
+        as_matrix()
+            Returns raw matrix of synergy scores (0 if unknown).
+            Rows are drug combinations, columns are cell lines (both alphabetical order)
+        as_mask():
+            Returns matrix of mask values - 1 if that entry has a synergy score, 0 if not.
+        as_list()
+            Returns list of tuples: [(drug1,drug2,cell_line,synergy)].
+            Sorted by drug1, drug2, cell_line alphabetically in that order.
+        as_dict()
+            Returns dictionary mapping:
+                Dict[drug1,drug2,cell_line] -> synergy
+
+    FIELDS:
+        raw_synergies               Stores pandas DataFrame of synergies (filtered)
+        cell_lines                  List of cell line names, corresponding to entries in data
+        unique_cell_lines           List of unique cell line names (sorted alphabetically)
+        drugs1                      List of names of first drug in combination, corresponding to entries in data
+        drugs2                      List of names of second drug in combination, corresponding to entries in data
+        drug_combinations           List of drug combination names, corresponding to entries in data
+        unique_drug_combinations    List of unique drug combination names
+        synergies                   List of synergy values, corresponding to entries in the data
+        matrix                      Matrix representation of the data, rows ordered by unique_drug_combinations, columns by unique_cell_lines
+        mask                        Mask of matrix, 1 indicating observed value, 0 unobserved
+        list                        List of data, [(d1,d2,cl,s)]
+        dict                        Dictionary of data, dict[d1,d2,cl] = s
+
+
+split_data.py
+    DESCRIPTION:
+        Class for splitting the raw data into stratified folds, to be used for
+        (cross-)validation.
+        We stratify on: disease type of cell line, synergistic or antagonistic.
+        The default threshold for synergism is 10, antagonism -10.
+
+        When returning the splits we ensure that they have the same list of
+        unique cell lines and drug combinations (important for matrix).
+
+    METHODS:
+        __init__(args)
+            Initialise the class by loading in the data (synergies and cell line info).
+            If no arguments are given, use default locations for files.
+            Usage:
+                StratifiedKFolds()
+            Optional arguments:
+                data_synergies      -> pandas dataframe of raw synergy dataset
+                location_synergies  -> folder+filename.csv of file containing raw synergy dataset
+                location_cell_info  -> folder+filename.csv of file containing cell info
+        process_data(args)
+            See load_synergies.py -> process_data(args).
+        split(args)
+            Split the loaded and processed data into folds.
+            Usage:
+                kfolds.split(folds=<>)
+            Optional arguments:
+                seed                -> random seed
+                threshold_synergism -> threshold above which a synergy score is classified as synergistic
+        return_split(index=0)
+            Return the <index>th stratified split, returning a pair (training,test)
+            of Synergies objects.
+        return_split_raw(index=0)
+            Same but return as pandas DataFrames.
+        return_all_splits()
+            Return all (training,test) pairs (for cross-validation).
+        return_all_splits_raw()
+            Same but return as pandas DataFrames.
+
+    FIELDS:
+        synergies           -> Synergies object of entire dataset
+        raw_cell_info       -> pandas DataFrame of cell info
+        labels              -> list of labels for stratification
